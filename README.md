@@ -10,6 +10,7 @@ Package dogstatsd provides a Go DogStatsD client. DogStatsD extends StatsD - add
 
     // Create the client
     c, err := dogstatsd.New("127.0.0.1:8125")
+    defer c.Close()
     if err != nil {
       log.Fatal(err)
     }

@@ -48,6 +48,7 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer client.Close()
 
 	for _, tt := range dogstatsdTests {
 		client.Namespace = tt.GlobalNamespace

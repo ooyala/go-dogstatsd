@@ -7,6 +7,7 @@ histograms. Refer to http://docs.datadoghq.com/guides/dogstatsd/ for information
 Example Usage:
 		// Create the client
 		c, err := dogstatsd.New("127.0.0.1:8125")
+		defer c.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -44,6 +45,11 @@ func New(addr string) (*Client, error) {
 	}
 	client := &Client{conn: conn}
 	return client, nil
+}
+
+// Close closes the connection to the DogStatsD agent
+func (c *Client) Close() error {
+	return c.conn.Close()
 }
 
 // send handles sampling and sends the message over UDP. It also adds global namespace prefixes and tags.
