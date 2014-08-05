@@ -22,6 +22,7 @@ dogstatsd is based on go-statsd-client.
 package dogstatsd
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"net"
@@ -73,6 +74,22 @@ func (c *Client) send(name string, value string, tags []string, rate float64) er
 
 	data := fmt.Sprintf("%s:%s", name, value)
 	_, err := c.conn.Write([]byte(data))
+	return err
+}
+
+// Event posts to the Datadog event stream.
+func (c *Client) Event(title string, text string, tags []string) error {
+	var b bytes.Buffer
+
+	fmt.Fprintf(&b, "_e{%d,%d}:%s|%s", len(title), len(text), title, text)
+	tags = append(c.Tags, tags...)
+	format := "|#%s"
+	for _, t := range tags {
+		fmt.Fprintf(&b, format, t)
+		format = ",%s"
+	}
+
+	_, err := c.conn.Write(b.Bytes())
 	return err
 }
 

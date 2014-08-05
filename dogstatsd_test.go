@@ -33,21 +33,9 @@ var dogstatsdTests = []struct {
 
 func TestClient(t *testing.T) {
 	addr := "localhost:1201"
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	server, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	server := newServer(t, addr)
 	defer server.Close()
-
-	client, err := New(addr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	client := newClient(t, addr)
 	defer client.Close()
 
 	for _, tt := range dogstatsdTests {
@@ -64,14 +52,58 @@ func TestClient(t *testing.T) {
 			t.Fatal(errInter.(error))
 		}
 
-		bytes := make([]byte, 1024)
-		n, _, err := server.ReadFrom(bytes)
-		if err != nil {
-			t.Fatal(err)
-		}
-		message := bytes[:n]
-		if string(message) != tt.Expected {
-			t.Errorf("Expected: %s. Actual: %s", tt.Expected, string(message))
+		message := serverRead(t, server)
+		if message != tt.Expected {
+			t.Errorf("Expected: %s. Actual: %s", tt.Expected, message)
 		}
 	}
+
+}
+
+func TestEvent(t *testing.T) {
+	addr := "localhost:1201"
+	server := newServer(t, addr)
+	defer server.Close()
+	client := newClient(t, addr)
+
+	err := client.Event("title", "text", []string{"tag1", "tag2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := serverRead(t, server)
+	expected := "_e{5,4}:title|text|#tag1,tag2"
+	if message != expected {
+		t.Errorf("Expected: %s. Actual: %s", expected, message)
+	}
+}
+
+func serverRead(t *testing.T, server *net.UDPConn) string {
+	bytes := make([]byte, 1024)
+	n, _, err := server.ReadFrom(bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(bytes[:n])
+}
+
+func newClient(t *testing.T, addr string) *Client {
+	client, err := New(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client
+}
+
+func newServer(t *testing.T, addr string) *net.UDPConn {
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return server
 }
