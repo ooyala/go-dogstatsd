@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/mkobetic/dogstatsd"
+	"github.com/mkobetic/go-dogstatsd"
 )
 
 func main() {
