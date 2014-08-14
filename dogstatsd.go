@@ -77,6 +77,7 @@ func (c *Client) send(name string, value string, tags []string, rate float64) er
 	return err
 }
 
+// AlertType represents the supported alert_types of Datadog events.
 type AlertType int
 
 const (
@@ -91,6 +92,8 @@ func (t AlertType) String() string {
 }
 
 // Event posts to the Datadog event stream.
+// Four event types are supported: info, success, warning, error.
+// If client Namespace is set it is used as the Event source.
 func (c *Client) Info(title string, text string, tags []string) error {
 	return c.Event(title, text, Info, tags)
 }
