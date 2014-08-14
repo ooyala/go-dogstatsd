@@ -12,7 +12,7 @@ Example Usage:
 			log.Fatal(err)
 		}
 		// Prefix every metric with the app name
-		c.Namespace = "flubber."
+		c.Namespace = "flubber"
 		// Send the EC2 availability zone as a tag with every metric
 		append(c.Tags, "us-east-1a")
 		err = c.Gauge("request.duration", 1.2, nil, 1)
@@ -64,7 +64,7 @@ func (c *Client) send(name string, value string, tags []string, rate float64) er
 	}
 
 	if c.Namespace != "" {
-		name = fmt.Sprintf("%s%s", c.Namespace, name)
+		name = fmt.Sprintf("%s.%s", c.Namespace, name)
 	}
 
 	tags = append(c.Tags, tags...)
@@ -77,11 +77,39 @@ func (c *Client) send(name string, value string, tags []string, rate float64) er
 	return err
 }
 
+type AlertType int
+
+const (
+	Info AlertType = iota
+	Success
+	Warning
+	Error
+)
+
+func (t AlertType) String() string {
+	return []string{"info", "success", "warning", "error"}[int(t)]
+}
+
 // Event posts to the Datadog event stream.
-func (c *Client) Event(title string, text string, tags []string) error {
+func (c *Client) Info(title string, text string, tags []string) error {
+	return c.Event(title, text, Info, tags)
+}
+func (c *Client) Success(title string, text string, tags []string) error {
+	return c.Event(title, text, Success, tags)
+}
+func (c *Client) Warning(title string, text string, tags []string) error {
+	return c.Event(title, text, Warning, tags)
+}
+func (c *Client) Error(title string, text string, tags []string) error {
+	return c.Event(title, text, Error, tags)
+}
+func (c *Client) Event(title string, text string, level AlertType, tags []string) error {
 	var b bytes.Buffer
 
-	fmt.Fprintf(&b, "_e{%d,%d}:%s|%s", len(title), len(text), title, text)
+	fmt.Fprintf(&b, "_e{%d,%d}:%s|%s|t:%s", len(title), len(text), title, text, level)
+	if c.Namespace != "" {
+		fmt.Fprintf(&b, "|s:%s", c.Namespace)
+	}
 	tags = append(c.Tags, tags...)
 	format := "|#%s"
 	for _, t := range tags {
