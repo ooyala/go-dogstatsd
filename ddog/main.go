@@ -11,7 +11,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = c.Event("test event", "description", []string{"testing:yes"})
+	c.Namespace = "reportify"
+	err = c.Warning("test event", "description", []string{"testing:yes"})
 	if err != nil {
 		log.Fatal(err)
 	}
