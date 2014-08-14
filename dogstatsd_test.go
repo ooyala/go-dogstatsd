@@ -27,7 +27,7 @@ var dogstatsdTests = []struct {
 	{"", nil, "Count", "test.count", int64(-1), []string{"tagA"}, 1.0, "test.count:-1|c|#tagA"},
 	{"", nil, "Histogram", "test.histogram", 2.3, []string{"tagA"}, 1.0, "test.histogram:2.300000|h|#tagA"},
 	{"", nil, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagA"},
-	{"flubber", nil, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "flubber.test.set:uuid|s|#tagA"},
+	{"flubber.", nil, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "flubber.test.set:uuid|s|#tagA"},
 	{"", []string{"tagC"}, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagC,tagA"},
 }
 
@@ -65,6 +65,7 @@ func TestEvent(t *testing.T) {
 	server := newServer(t, addr)
 	defer server.Close()
 	client := newClient(t, addr)
+	client.Namespace = "flubber."
 
 	err := client.Warning("title", "text", []string{"tag1", "tag2"})
 	if err != nil {
@@ -72,7 +73,7 @@ func TestEvent(t *testing.T) {
 	}
 
 	message := serverRead(t, server)
-	expected := "_e{5,4}:title|text|t:warning|#tag1,tag2"
+	expected := "_e{5,4}:title|text|t:warning|s:flubber|#tag1,tag2"
 	if message != expected {
 		t.Errorf("Expected: %s. Actual: %s", expected, message)
 	}

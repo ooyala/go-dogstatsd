@@ -12,10 +12,13 @@ Example Usage:
 			log.Fatal(err)
 		}
 		// Prefix every metric with the app name
-		c.Namespace = "flubber"
+		c.Namespace = "flubber."
 		// Send the EC2 availability zone as a tag with every metric
 		append(c.Tags, "us-east-1a")
 		err = c.Gauge("request.duration", 1.2, nil, 1)
+
+		// Post info to datadog event stream
+		err = c.Info("cookie alert", "Cookies up for grabs in the kitchen!", nil)
 
 dogstatsd is based on go-statsd-client.
 */
@@ -64,7 +67,7 @@ func (c *Client) send(name string, value string, tags []string, rate float64) er
 	}
 
 	if c.Namespace != "" {
-		name = fmt.Sprintf("%s.%s", c.Namespace, name)
+		name = fmt.Sprintf("%s%s", c.Namespace, name)
 	}
 
 	tags = append(c.Tags, tags...)
@@ -111,7 +114,11 @@ func (c *Client) Event(title string, text string, level AlertType, tags []string
 
 	fmt.Fprintf(&b, "_e{%d,%d}:%s|%s|t:%s", len(title), len(text), title, text, level)
 	if c.Namespace != "" {
-		fmt.Fprintf(&b, "|s:%s", c.Namespace)
+		source := c.Namespace
+		if period := strings.IndexByte(source, '.'); period > -1 {
+			source = source[:period]
+		}
+		fmt.Fprintf(&b, "|s:%s", source)
 	}
 	tags = append(c.Tags, tags...)
 	format := "|#%s"
