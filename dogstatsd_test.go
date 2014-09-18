@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 )
 
 var dogstatsdTests = []struct {
@@ -73,5 +74,27 @@ func TestClient(t *testing.T) {
 		if string(message) != tt.Expected {
 			t.Errorf("Expected: %s. Actual: %s", tt.Expected, string(message))
 		}
+	}
+
+	eTime := time.Unix(123, 0)
+	client.Event("event title", "event text", EventOptions{
+		DateHappened:   &eTime,
+		Hostname:       "host",
+		AggregationKey: "agkey",
+		Priority:       Low,
+		SourceTypeName: "stname",
+		AlertType:      Error,
+		Tags:           []string{"tag:value"},
+	})
+
+	bytes := make([]byte, 1024)
+	n, _, err := server.ReadFrom(bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := bytes[:n]
+	expected := "_e{11,10}:event title|event text|d:123|h:host|k:agkey|p:low|s:stname|t:error|#tag:value"
+	if string(message) != expected {
+		t.Errorf("Expected: %s. Actual: %s", expected, string(message))
 	}
 }
