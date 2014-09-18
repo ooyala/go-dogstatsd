@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 )
 
 var dogstatsdTests = []struct {
@@ -81,6 +82,20 @@ var eventTests = []eventTest{
 	eventTest{
 		logEvent: func(c *Client) error { return c.Success("Great News", "hurray", []string{"foo", "bar", "baz"}) },
 		expected: "_e{10,6}:Great News|hurray|t:success|s:flubber|#foo,bar,baz",
+	},
+	eventTest{
+		logEvent: func(c *Client) error {
+			eo := EventOpts{
+				DateHappened:   time.Date(2014, time.September, 18, 22, 56, 0, 0, time.UTC),
+				Priority:       Normal,
+				Host:           "node.example.com",
+				AggregationKey: "foo",
+				SourceTypeName: "bar",
+				AlertType:      Success,
+			}
+			return c.Event("custom title", "custom body", &eo)
+		},
+		expected: "_e{12,11}:custom title|custom body|t:success|s:bar|d:1411080960|p:normal|h:node.example.com|k:foo",
 	},
 }
 
