@@ -60,6 +60,30 @@ func TestClient(t *testing.T) {
 
 }
 
+type eventTest struct {
+	logEvent func(*Client) error
+	expected string
+}
+
+var eventTests = []eventTest{
+	eventTest{
+		logEvent: func(c *Client) error { return c.Warning("title", "text", []string{"tag1", "tag2"}) },
+		expected: "_e{5,4}:title|text|t:warning|s:flubber|#tag1,tag2",
+	},
+	eventTest{
+		logEvent: func(c *Client) error { return c.Error("Error!", "some error", []string{"tag3"}) },
+		expected: "_e{6,10}:Error!|some error|t:error|s:flubber|#tag3",
+	},
+	eventTest{
+		logEvent: func(c *Client) error { return c.Info("FYI", "note", []string{}) },
+		expected: "_e{3,4}:FYI|note|t:info|s:flubber",
+	},
+	eventTest{
+		logEvent: func(c *Client) error { return c.Success("Great News", "hurray", []string{"foo", "bar", "baz"}) },
+		expected: "_e{10,6}:Great News|hurray|t:success|s:flubber|#foo,bar,baz",
+	},
+}
+
 func TestEvent(t *testing.T) {
 	addr := "localhost:1201"
 	server := newServer(t, addr)
@@ -67,15 +91,14 @@ func TestEvent(t *testing.T) {
 	client := newClient(t, addr)
 	client.Namespace = "flubber."
 
-	err := client.Warning("title", "text", []string{"tag1", "tag2"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	message := serverRead(t, server)
-	expected := "_e{5,4}:title|text|t:warning|s:flubber|#tag1,tag2"
-	if message != expected {
-		t.Errorf("Expected: %s. Actual: %s", expected, message)
+	for _, tt := range eventTests {
+		if err := tt.logEvent(client); err != nil {
+			t.Fatal(err)
+		}
+		message := serverRead(t, server)
+		if message != tt.expected {
+			t.Errorf("Expected: %s. Actual: %s", tt.expected, message)
+		}
 	}
 }
 
