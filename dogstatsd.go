@@ -88,12 +88,13 @@ type AlertType string
 type PriorityType string
 
 const (
-	Info    AlertType    = "info"
-	Success AlertType    = "success"
-	Warning AlertType    = "warning"
-	Error   AlertType    = "error"
-	Normal  PriorityType = "normal"
-	Low     PriorityType = "low"
+	Info          AlertType    = "info"
+	Success       AlertType    = "success"
+	Warning       AlertType    = "warning"
+	Error         AlertType    = "error"
+	Normal        PriorityType = "normal"
+	Low           PriorityType = "low"
+	maxEventBytes              = 8192
 )
 
 // Detailed options for Event generation
@@ -155,7 +156,6 @@ func (c *Client) Event(title string, text string, eo *EventOpts) error {
 	if eo.AggregationKey != "" {
 		fmt.Fprintf(&b, "|k:%s", eo.AggregationKey)
 	}
-
 	tags := append(c.Tags, eo.Tags...)
 	format := "|#%s"
 	for _, t := range tags {
@@ -163,7 +163,11 @@ func (c *Client) Event(title string, text string, eo *EventOpts) error {
 		format = ",%s"
 	}
 
-	_, err := c.conn.Write(b.Bytes())
+	bytes := b.Bytes()
+	if len(bytes) > maxEventBytes {
+		return fmt.Errorf("Event '%s' payload is too big (more that 8KB), event discarded", title)
+	}
+	_, err := c.conn.Write(bytes)
 	return err
 }
 

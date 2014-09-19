@@ -3,6 +3,8 @@
 package dogstatsd
 
 import (
+	"bytes"
+	"fmt"
 	"net"
 	"reflect"
 	"testing"
@@ -114,6 +116,15 @@ func TestEvent(t *testing.T) {
 		if message != tt.expected {
 			t.Errorf("Expected: %s. Actual: %s", tt.expected, message)
 		}
+	}
+
+	var b bytes.Buffer
+	for i := 0; i < maxEventBytes+1; i++ {
+		fmt.Fprintf(&b, "a")
+	}
+	err := client.Error("too long", b.String(), []string{})
+	if err == nil || err.Error() != "Event 'too long' payload is too big (more that 8KB), event discarded" {
+		t.Errorf("Expected error due to exceeded event byte length")
 	}
 }
 
