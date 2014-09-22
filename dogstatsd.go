@@ -31,6 +31,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type Client struct {
@@ -139,7 +140,8 @@ func (c *Client) Error(title string, text string, tags []string) error {
 }
 func (c *Client) Event(title string, text string, eo *EventOpts) error {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "_e{%d,%d}:%s|%s|t:%s", len(title), len(text), title, text, eo.AlertType)
+	fmt.Fprintf(&b, "_e{%d,%d}:%s|%s|t:%s", utf8.RuneCountInString(title),
+		utf8.RuneCountInString(text), title, text, eo.AlertType)
 
 	if eo.SourceTypeName != "" {
 		fmt.Fprintf(&b, "|s:%s", eo.SourceTypeName)

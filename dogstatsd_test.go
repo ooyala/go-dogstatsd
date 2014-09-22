@@ -86,6 +86,11 @@ var eventTests = []eventTest{
 		expected: "_e{10,6}:Great News|hurray|t:success|s:flubber|#foo,bar,baz",
 	},
 	eventTest{
+		logEvent: func(c *Client) error { return c.Info("Unicode", "世界", []string{}) },
+		// Expect character, not byte lengths
+		expected: "_e{7,2}:Unicode|世界|t:info|s:flubber",
+	},
+	eventTest{
 		logEvent: func(c *Client) error {
 			eo := EventOpts{
 				DateHappened:   time.Date(2014, time.September, 18, 22, 56, 0, 0, time.UTC),
