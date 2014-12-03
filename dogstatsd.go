@@ -40,6 +40,8 @@ type Client struct {
 	Namespace string
 	// Global tags to be added to every statsd call
 	Tags []string
+	// Syslog
+	slog Log_
 }
 
 // New returns a pointer to a new Client and an error.
@@ -49,7 +51,10 @@ func New(addr string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	client := &Client{Conn: conn}
+	client := &Client{
+		Conn: conn,
+		slog: LogStart(true),
+	}
 	return client, nil
 }
 
@@ -83,12 +88,12 @@ func (c *Client) Send(name string, value string, tags []string, rate float64) er
 	return err
 }
 
-func (c *Client) Incre(name string, value int64, tags []string, rate float64) error {
+func (c *Client) Increment(name string, value int64, tags []string, rate float64) error {
 	stat := fmt.Sprintf("%d|c", value)
 	return c.Send(name, stat, tags, rate)
 }
 
-func (c *Client) Decre(name string, value int64, tags []string, rate float64) error {
+func (c *Client) Decrement(name string, value int64, tags []string, rate float64) error {
 	stat := fmt.Sprintf("%d|c", -value)
 	return c.Send(name, stat, tags, rate)
 }
@@ -138,18 +143,18 @@ func NewDefaultEventOpts(alertType AlertType, tags []string, namespace string) *
 // Four event types are supported: info, success, warning, error.
 // If client Namespace is set it is used as the Event source.
 func (c *Client) Info(title string, text string, tags []string) error {
-	return c.Eve(title, text, NewDefaultEventOpts(Info, tags, c.Namespace))
+	return c.Event(title, text, NewDefaultEventOpts(Info, tags, c.Namespace))
 }
-func (c *Client) Succ(title string, text string, tags []string) error {
-	return c.Eve(title, text, NewDefaultEventOpts(Success, tags, c.Namespace))
+func (c *Client) Success(title string, text string, tags []string) error {
+	return c.Event(title, text, NewDefaultEventOpts(Success, tags, c.Namespace))
 }
-func (c *Client) Warn(title string, text string, tags []string) error {
-	return c.Eve(title, text, NewDefaultEventOpts(Warning, tags, c.Namespace))
+func (c *Client) Warning(title string, text string, tags []string) error {
+	return c.Event(title, text, NewDefaultEventOpts(Warning, tags, c.Namespace))
 }
-func (c *Client) Err(title string, text string, tags []string) error {
-	return c.Eve(title, text, NewDefaultEventOpts(Error, tags, c.Namespace))
+func (c *Client) Error(title string, text string, tags []string) error {
+	return c.Event(title, text, NewDefaultEventOpts(Error, tags, c.Namespace))
 }
-func (c *Client) Eve(title string, text string, eo *EventOpts) error {
+func (c *Client) Event(title string, text string, eo *EventOpts) error {
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "_e{%d,%d}:%s|%s|t:%s", utf8.RuneCountInString(title),
 		utf8.RuneCountInString(text), title, text, eo.AlertType)
@@ -186,25 +191,25 @@ func (c *Client) Eve(title string, text string, eo *EventOpts) error {
 }
 
 // Gauges measure the value of a metric at a particular time
-func (c *Client) Gauges(name string, value float64, tags []string, rate float64) error {
+func (c *Client) Gauge(name string, value float64, tags []string, rate float64) error {
 	stat := fmt.Sprintf("%f|g", value)
 	return c.Send(name, stat, tags, rate)
 }
 
 // Counters track how many times something happened per second
-func (c *Client) Counts(name string, value int64, tags []string, rate float64) error {
+func (c *Client) Count(name string, value int64, tags []string, rate float64) error {
 	stat := fmt.Sprintf("%d|c", value)
 	return c.Send(name, stat, tags, rate)
 }
 
 // Histograms track the statistical distribution of a set of values
-func (c *Client) Hist(name string, value float64, tags []string, rate float64) error {
+func (c *Client) Histogram(name string, value float64, tags []string, rate float64) error {
 	stat := fmt.Sprintf("%f|h", value)
 	return c.Send(name, stat, tags, rate)
 }
 
 // Sets count the number of unique elements in a group
-func (c *Client) Sets(name string, value string, tags []string, rate float64) error {
+func (c *Client) Set(name string, value string, tags []string, rate float64) error {
 	stat := fmt.Sprintf("%s|s", value)
 	return c.Send(name, stat, tags, rate)
 }
