@@ -17,7 +17,6 @@ const (
 	ERROR       int64   = 1
 	STEP_SIZE   int64   = 1
 	SAMPLE_RATE float64 = 1.0
-	SKIP        int     = 2
 )
 
 // Appends the required suffix to the metric after proper formatting, based on the ploterror parameter
@@ -25,17 +24,20 @@ func (c *Client) MetricTitle(ploterror int64, String string) string {
 	String = FormatTitle(String)
 	s := make([]string, 2)
 	s[0] = String
+	pc, _, _, _ := runtime.Caller(1)
+	function := runtime.FuncForPC(pc).Name()
+	fname := (strings.Split(function, "."))[2]
 
-	if ploterror == 1 {
-		if GetFunctionName(SKIP) != "Incr" && GetFunctionName(SKIP) != "Decr" {
-			s[1] = strings.ToLower(GetFunctionName(SKIP))
-		} else {
-			s[1] = "number_of_errors"
-		}
+	if fname != "Incr" && fname != "Decr" {
+
+		s[1] = strings.ToLower(fname)
 	} else {
-		s[1] = "number_of_hits"
+		if ploterror == 1 {
+			s[1] = "number_of_errors"
+		} else {
+			s[1] = "number_of_hits"
+		}
 	}
-	fmt.Println(strings.Join(s, "."))
 	return strings.Join(s, ".")
 }
 
@@ -55,12 +57,13 @@ func FormatTitle(String string) string {
 }
 
 // Initializes StatsD Client and returns a pointer to object
-func Adapter() *Client {
+func adapter() *Client {
 	var err error
 	if c == nil {
 		c = &Client{}
 		// Connecting to the Datadog Agent
 		addr := conf.Get("db.ddagent_conn", nil).(string)
+
 		c, err = New(addr)
 		if err != nil {
 			fmt.Println(err)
@@ -73,14 +76,25 @@ func Adapter() *Client {
 	return c
 }
 
+func Adapter() *Client {
+	if c == nil {
+		c := adapter()
+		var m *runtime.MemStats = new(runtime.MemStats)
+		c.Assess("Memory", ERROR, float64(c.GetHeapInuse(m)), nil, 1)
+		// next collection will happen when HeapAlloc ≥ this amount
+		c.Assess("GarbageCollector", ERROR, float64(c.GetNextGC(m)), nil, 1)
+
+		//fmt.Println("Memory in use metrics : \n", statsD.GetAllocatedMemory(m), statsD.GetHeapInuse(m), statsD.GetStackInuse(m), statsD.GetHeapAllocation(m), statsD.GetMCacheInuse(m), statsD.GetMSpanInuse(m))
+	}
+	return c
+}
+
 // Finds the name of the calling function which is used as the graph title on Datadog Dashboard
 func GetFunctionName(skip int) string {
 	pc, _, _, _ := runtime.Caller(skip)
-	if runtime.FuncForPC(pc) != nil {
-		function := runtime.FuncForPC(pc).Name()
-		return (strings.Split(function, "."))[2]
-	}
-	return ""
+	function := runtime.FuncForPC(pc).Name()
+	return (strings.Split(function, "."))[2]
+
 }
 
 // Increments the metric by a defined value, the flag value tells if errors or hits are to be incremented
@@ -193,7 +207,7 @@ func (c *Client) Fault(flag int64, text string, tags []string) {
 // Sets counts the number of unique elements in a group.
 func (c *Client) Sets(flag int64, value string, tags []string, rate float64) {
 	if c != nil {
-		// Gets the calling function's name
+		// Gets the cal string,ling function's name
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
@@ -206,13 +220,19 @@ func (c *Client) Sets(flag int64, value string, tags []string, rate float64) {
 }
 
 // Gaug measure the value of a metric at a particular time.
-func (c *Client) Gaug(flag int64, value float64, tags []string, rate float64) {
+func (c *Client) Assess(name string, flag int64, value float64, tags []string, rate float64) {
 	if c != nil {
 		// Gets the calling function's name
-		pc, _, _, _ := runtime.Caller(1)
-		function := runtime.FuncForPC(pc).Name()
-		// Uses the value as title for the Datadog Event Stream.
-		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		if name == "" {
+			pc, _, _, _ := runtime.Caller(1)
+			function := runtime.FuncForPC(pc).Name()
+			// Uses the value as title for the Datadog Event Stream.
+			name = c.MetricTitle(flag, (strings.Split(function, "."))[2])
+
+		} else {
+			name = c.MetricTitle(flag, name)
+		}
+
 		err := c.Gauge(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
