@@ -20,21 +20,22 @@ const (
 )
 
 // Appends the required suffix to the metric after proper formatting, based on the ploterror parameter
-func (c *Client) MetricTitle(ploterror int64, String string) string {
-	String = FormatTitle(String)
+//ploterror is a boolean parameter which is used to check, weather to append "number_of_error" or "number_of_hits" to the Title.
+//If the calling function is not "Incr" or "Decr", append the name of the function as suffix to the Title.
+func (c *Client) MetricTitle(ploterror int64, title string) string {
+	title = FormatTitle(title)
 	s := make([]string, 2)
-	s[0] = String
+	s[0] = title
 	pc, _, _, _ := runtime.Caller(1)
 	function := runtime.FuncForPC(pc).Name()
 	fname := (strings.Split(function, "."))[2]
 
 	if fname != "Incr" && fname != "Decr" {
-
 		s[1] = strings.ToLower(fname)
 	} else {
-		if ploterror == 1 {
+		if ploterror == ERROR {
 			s[1] = "number_of_errors"
-		} else {
+		} else if ploterror == HITS {
 			s[1] = "number_of_hits"
 		}
 	}
@@ -42,22 +43,23 @@ func (c *Client) MetricTitle(ploterror int64, String string) string {
 }
 
 // Formats and constructs the title for the metrics and events to be posted on the Datadog API.
-func FormatTitle(String string) string {
+// (e.g. If the title is "GetComplete",this function will process it to "get_complete" )
+func FormatTitle(title string) string {
 	var words []string
 	l := 0
-	for s := String; s != ""; s = s[l:] {
+	for s := title; s != ""; s = s[l:] {
 		l = strings.IndexFunc(s[1:], unicode.IsUpper) + 1
 		if l <= 0 {
 			l = len(s)
 		}
 		words = append(words, strings.ToLower(s[:l]))
 	}
-	String = strings.Join(words, "_")
-	return String
+	title = strings.Join(words, "_")
+	return title
 }
 
 // Initializes StatsD Client and returns a pointer to object
-func adapter() *Client {
+func Adapter() *Client {
 	var err error
 	if c == nil {
 		c = &Client{}
@@ -70,31 +72,13 @@ func adapter() *Client {
 		} else {
 			c.Tags = nil
 			// Prefix every metric with the app name
+			c.MemoryStats = new(runtime.MemStats)
 			c.Namespace = conf.Get("db.ddagent_Namespace", nil).(string)
 		}
 	}
+	c.AllocatedMemory()
+	c.NextGC()
 	return c
-}
-
-func Adapter() *Client {
-	if c == nil {
-		c := adapter()
-		var m *runtime.MemStats = new(runtime.MemStats)
-		c.Assess("Memory", ERROR, float64(c.GetHeapInuse(m)), nil, 1)
-		// next collection will happen when HeapAlloc ≥ this amount
-		c.Assess("GarbageCollector", ERROR, float64(c.GetNextGC(m)), nil, 1)
-
-		//fmt.Println("Memory in use metrics : \n", statsD.GetAllocatedMemory(m), statsD.GetHeapInuse(m), statsD.GetStackInuse(m), statsD.GetHeapAllocation(m), statsD.GetMCacheInuse(m), statsD.GetMSpanInuse(m))
-	}
-	return c
-}
-
-// Finds the name of the calling function which is used as the graph title on Datadog Dashboard
-func GetFunctionName(skip int) string {
-	pc, _, _, _ := runtime.Caller(skip)
-	function := runtime.FuncForPC(pc).Name()
-	return (strings.Split(function, "."))[2]
-
 }
 
 // Increments the metric by a defined value, the flag value tells if errors or hits are to be incremented
@@ -220,24 +204,17 @@ func (c *Client) Sets(flag int64, value string, tags []string, rate float64) {
 }
 
 // Gaug measure the value of a metric at a particular time.
-func (c *Client) Assess(name string, flag int64, value float64, tags []string, rate float64) {
+func (c *Client) Assess(flag int64, value float64, tags []string, rate float64) {
 	if c != nil {
 		// Gets the calling function's name
-		if name == "" {
-			pc, _, _, _ := runtime.Caller(1)
-			function := runtime.FuncForPC(pc).Name()
-			// Uses the value as title for the Datadog Event Stream.
-			name = c.MetricTitle(flag, (strings.Split(function, "."))[2])
-
-		} else {
-			name = c.MetricTitle(flag, name)
-		}
-
+		pc, _, _, _ := runtime.Caller(1)
+		function := runtime.FuncForPC(pc).Name()
+		// Uses the value as title for the Datadog Event Stream.
+		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
 		err := c.Gauge(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
 		}
-
 	}
 }
 
@@ -268,5 +245,102 @@ func (c *Client) Compute(flag int64, value int64, tags []string, rate float64) {
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
 		}
+	}
+}
+func checkerror(err error) {
+	if err != nil {
+		c.slog.Errf("Error: %s", err)
+	}
+}
+
+//Memory in use metrics
+// Plots the number of bytes allocated and still in use.
+func (c *Client) AllocatedMemory() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "allocated_memory"
+		err := c.Gauge(title, float64(c.MemoryStats.Alloc), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+// Plots the number of bytes used now by mcache structures
+func (c *Client) MCacheInuse() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "mcache_inuse"
+		err := c.Gauge(title, float64(c.MemoryStats.MCacheInuse), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+// Plots the number of bytes used now by mspan structures
+func (c *Client) MSpanInuse() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "mspan_inuse"
+		err := c.Gauge(title, float64(c.MemoryStats.MSpanInuse), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+// Plots the number of bytes in non-idle span
+func (c *Client) HeapInuse() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "heap_inuse"
+		err := c.Gauge(title, float64(c.MemoryStats.HeapInuse), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+// Sytem memory allocations
+
+// Plots the number of bytes obtained from system
+func (c *Client) HeapSystem() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "heap_allocation"
+		err := c.Gauge(title, float64(c.MemoryStats.HeapSys), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+func (c *Client) MSpanSystem() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "mspan_system"
+		err := c.Gauge(title, float64(c.MemoryStats.MSpanSys), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+func (c *Client) MCacheSystem() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "mcache_system"
+		err := c.Gauge(title, float64(c.MemoryStats.MCacheSys), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+// Garbage collector statistics
+// next collection will happen when HeapAlloc ≥ this amount
+func (c *Client) NextGC() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "next garbage collection"
+		err := c.Gauge(title, float64(c.MemoryStats.NextGC), nil, SAMPLE_RATE)
+		checkerror(err)
+	}
+}
+
+// Displays the end time of last collection (nanoseconds since 1970)
+func (c *Client) GetLastGC() {
+	if c != nil {
+		runtime.ReadMemStats(c.MemoryStats)
+		title := "Last Garbage Collection"
+		err := c.Info(title, string(c.MemoryStats.LastGC), nil)
+		checkerror(err)
 	}
 }

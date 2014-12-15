@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -41,7 +42,8 @@ type Client struct {
 	// Global tags to be added to every statsd call
 	Tags []string
 	// Syslog
-	slog Log_
+	slog        Log_
+	MemoryStats *runtime.MemStats
 }
 
 // New returns a pointer to a new Client and an error.
