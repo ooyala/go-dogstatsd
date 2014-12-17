@@ -5,7 +5,6 @@ import (
 	"github.com/jabong/blaze/conf"
 	"runtime"
 	"strings"
-	"unicode"
 )
 
 /* Wrapper for passing data to datadog */
@@ -24,13 +23,12 @@ const (
 // "number_of_hits" to the Title. If the calling function is not "Incr" or "Decr", append the name of
 // the function as suffix to the Title.
 func (c *Client) MetricTitle(ploterror int64, title string) string {
-	title = FormatTitle(title)
 	s := make([]string, 2)
 	s[0] = title
 	pc, _, _, _ := runtime.Caller(1)
 	function := runtime.FuncForPC(pc).Name()
-	fname := parse(function)
-
+	fname := (strings.Split(function, "/"))[len(strings.Split(function, "/"))-1]
+	fname = (strings.Split(fname, "."))[len(strings.Split(fname, "."))-1]
 	if fname != "Incr" && fname != "Decr" {
 		s[1] = strings.ToLower(fname)
 	} else {
@@ -41,22 +39,6 @@ func (c *Client) MetricTitle(ploterror int64, title string) string {
 		}
 	}
 	return strings.Join(s, ".")
-}
-
-// Formats and constructs the title for the metrics and events to be posted on the Datadog API.
-// (e.g. If the title is "GetComplete",this function will process it to "get_complete" )
-func FormatTitle(title string) string {
-	var words []string
-	l := 0
-	for s := title; s != ""; s = s[l:] {
-		l = strings.IndexFunc(s[1:], unicode.IsUpper) + 1
-		if l <= 0 {
-			l = len(s)
-		}
-		words = append(words, strings.ToLower(s[:l]))
-	}
-	title = strings.Join(words, "_")
-	return title
 }
 
 // Initializes StatsD Client and returns a pointer to object
@@ -84,7 +66,6 @@ func Adapter() *Client {
 // Extracts the function name from the given function path.
 func parse(functionName string) string {
 	fname := (strings.Split(functionName, "/"))[len(strings.Split(functionName, "/"))-1]
-	fname = (strings.Split(fname, "."))[len(strings.Split(fname, "."))-1]
 	return fname
 }
 
