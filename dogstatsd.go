@@ -54,8 +54,9 @@ func New(addr string) (*Client, error) {
 		return nil, err
 	}
 	client := &Client{
-		Conn: conn,
-		slog: LogStart(true),
+		Conn:        conn,
+		slog:        LogStart(true),
+		MemoryStats: new(runtime.MemStats),
 	}
 	return client, nil
 }

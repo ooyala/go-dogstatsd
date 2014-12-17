@@ -20,8 +20,9 @@ const (
 )
 
 // Appends the required suffix to the metric after proper formatting, based on the ploterror parameter
-//ploterror is a boolean parameter which is used to check, weather to append "number_of_error" or "number_of_hits" to the Title.
-//If the calling function is not "Incr" or "Decr", append the name of the function as suffix to the Title.
+// ploterror is a boolean parameter which is used to check, weather to append "number_of_error" or
+// "number_of_hits" to the Title. If the calling function is not "Incr" or "Decr", append the name
+// of the function as suffix to the Title.
 func (c *Client) MetricTitle(ploterror int64, title string) string {
 	title = FormatTitle(title)
 	s := make([]string, 2)
@@ -72,7 +73,6 @@ func Adapter() *Client {
 		} else {
 			c.Tags = nil
 			// Prefix every metric with the app name
-			c.MemoryStats = new(runtime.MemStats)
 			c.Namespace = conf.Get("db.ddagent_Namespace", nil).(string)
 		}
 	}
@@ -253,7 +253,7 @@ func checkerror(err error) {
 	}
 }
 
-//Memory in use metrics
+// Memory in use metrics
 // Plots the number of bytes allocated and still in use.
 func (c *Client) AllocatedMemory() {
 	if c != nil {
