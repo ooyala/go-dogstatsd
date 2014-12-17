@@ -29,7 +29,7 @@ func (c *Client) MetricTitle(ploterror int64, title string) string {
 	s[0] = title
 	pc, _, _, _ := runtime.Caller(1)
 	function := runtime.FuncForPC(pc).Name()
-	fname := (strings.Split(function, "."))[2]
+	fname := parse(function)
 
 	if fname != "Incr" && fname != "Decr" {
 		s[1] = strings.ToLower(fname)
@@ -81,6 +81,13 @@ func Adapter() *Client {
 	return c
 }
 
+// Extracts the function name from the given function path.
+func parse(functionName string) string {
+	fname := (strings.Split(functionName, "/"))[len(strings.Split(functionName, "/"))-1]
+	fname = (strings.Split(fname, "."))[len(strings.Split(fname, "."))-1]
+	return fname
+}
+
 // Increments the metric by a defined value, the flag value tells if errors or hits are to be incremented
 func (c *Client) Incr(flag int64, value int64, tags []string, rate float64) {
 	if c != nil {
@@ -88,7 +95,7 @@ func (c *Client) Incr(flag int64, value int64, tags []string, rate float64) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value to get the metric-name,to be graphed on the Datadog dashboard.
-		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		name := c.MetricTitle(flag, parse(function))
 		err := c.Increment(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -103,7 +110,7 @@ func (c *Client) Decr(flag int64, value int64, tags []string, rate float64) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value to get the metric-name,to be graphed on the Datadog dashboard.
-		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		name := c.MetricTitle(flag, parse(function))
 		err := c.Decrement(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -120,7 +127,7 @@ func (c *Client) Evnt(flag int64, text string, eo *EventOpts) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		title := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		title := c.MetricTitle(flag, parse(function))
 		err := c.Event(title, text, NewDefaultEventOpts(eo.AlertType, c.Tags, c.Namespace))
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -135,7 +142,7 @@ func (c *Client) Inform(flag int64, text string, tags []string) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		title := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		title := c.MetricTitle(flag, parse(function))
 		err := c.Info(title, text, tags)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -150,7 +157,7 @@ func (c *Client) Succss(flag int64, text string, tags []string) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		title := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		title := c.MetricTitle(flag, parse(function))
 		err := c.Success(title, text, tags)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -165,7 +172,7 @@ func (c *Client) Caution(flag int64, text string, tags []string) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		title := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		title := c.MetricTitle(flag, parse(function))
 		err := c.Warning(title, text, tags)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -180,7 +187,7 @@ func (c *Client) Fault(flag int64, text string, tags []string) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		title := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		title := c.MetricTitle(flag, parse(function))
 		err := c.Error(title, text, tags)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -195,7 +202,7 @@ func (c *Client) Sets(flag int64, value string, tags []string, rate float64) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		name := c.MetricTitle(flag, parse(function))
 		err := c.Set(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -210,7 +217,7 @@ func (c *Client) Assess(flag int64, value float64, tags []string, rate float64) 
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		name := c.MetricTitle(flag, parse(function))
 		err := c.Gauge(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -225,7 +232,7 @@ func (c *Client) Hist(flag int64, value float64, tags []string, rate float64) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		name := c.MetricTitle(flag, parse(function))
 		err := c.Histogram(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
@@ -240,7 +247,7 @@ func (c *Client) Compute(flag int64, value int64, tags []string, rate float64) {
 		pc, _, _, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
 		// Uses the value as title for the Datadog Event Stream.
-		name := c.MetricTitle(flag, (strings.Split(function, "."))[2])
+		name := c.MetricTitle(flag, parse(function))
 		err := c.Count(name, value, tags, rate)
 		if err != nil {
 			c.slog.Errf("Error: %s", err)
