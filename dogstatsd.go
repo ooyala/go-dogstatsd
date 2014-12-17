@@ -42,7 +42,8 @@ type Client struct {
 	// Global tags to be added to every statsd call
 	Tags []string
 	// Syslog
-	slog        Log_
+	slog Log_
+	// Memstats for runtime Memory Statistics
 	MemoryStats *runtime.MemStats
 }
 
@@ -54,8 +55,9 @@ func New(addr string) (*Client, error) {
 		return nil, err
 	}
 	client := &Client{
-		Conn: conn,
-		slog: LogStart(true),
+		Conn:        conn,
+		slog:        LogStart(true),
+		MemoryStats: new(runtime.MemStats),
 	}
 	return client, nil
 }
