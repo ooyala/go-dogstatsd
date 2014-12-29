@@ -79,7 +79,7 @@ func (c *Client) Incr(flag int64, value int64, tags []string, rate float64) {
 		name := c.MetricTitle(flag, parse(function))
 		err := c.Increment(name, value, tags, rate)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -94,7 +94,7 @@ func (c *Client) Decr(flag int64, value int64, tags []string, rate float64) {
 		name := c.MetricTitle(flag, parse(function))
 		err := c.Decrement(name, value, tags, rate)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -111,7 +111,7 @@ func (c *Client) Evnt(flag int64, text string, eo *EventOpts) {
 		title := c.MetricTitle(flag, parse(function))
 		err := c.Event(title, text, NewDefaultEventOpts(eo.AlertType, c.Tags, c.Namespace))
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -126,7 +126,7 @@ func (c *Client) Inform(flag int64, text string, tags []string) {
 		title := c.MetricTitle(flag, parse(function))
 		err := c.Info(title, text, tags)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -141,7 +141,7 @@ func (c *Client) Succss(flag int64, text string, tags []string) {
 		title := c.MetricTitle(flag, parse(function))
 		err := c.Success(title, text, tags)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -156,7 +156,7 @@ func (c *Client) Caution(flag int64, text string, tags []string) {
 		title := c.MetricTitle(flag, parse(function))
 		err := c.Warning(title, text, tags)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -165,13 +165,14 @@ func (c *Client) Caution(flag int64, text string, tags []string) {
 func (c *Client) Fault(flag int64, text string, tags []string) {
 	if c != nil {
 		// Gets the calling function's name
-		pc, _, _, _ := runtime.Caller(1)
+		pc, _, linenumber, _ := runtime.Caller(1)
 		function := runtime.FuncForPC(pc).Name()
+		text = fmt.Sprintf("%s Line Number : %d", text, linenumber)
 		// Uses the value as title for the Datadog Event Stream.
 		title := c.MetricTitle(flag, parse(function))
 		err := c.Error(title, text, tags)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -186,7 +187,7 @@ func (c *Client) Sets(flag int64, value string, tags []string, rate float64) {
 		name := c.MetricTitle(flag, parse(function))
 		err := c.Set(name, value, tags, rate)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -201,7 +202,7 @@ func (c *Client) Assess(flag int64, value float64, tags []string, rate float64) 
 		name := c.MetricTitle(flag, parse(function))
 		err := c.Gauge(name, value, tags, rate)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -216,7 +217,7 @@ func (c *Client) Hist(flag int64, value float64, tags []string, rate float64) {
 		name := c.MetricTitle(flag, parse(function))
 		err := c.Histogram(name, value, tags, rate)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
@@ -231,13 +232,13 @@ func (c *Client) Compute(flag int64, value int64, tags []string, rate float64) {
 		name := c.MetricTitle(flag, parse(function))
 		err := c.Count(name, value, tags, rate)
 		if err != nil {
-			c.slog.Errf("Error: %s", err)
+			c.Slog.Errf("Error: %s", err)
 		}
 	}
 }
 func checkerror(err error) {
 	if err != nil {
-		c.slog.Errf("Error: %s", err)
+		c.Slog.Errf("Error: %s", err)
 	}
 }
 
