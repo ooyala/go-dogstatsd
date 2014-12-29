@@ -2,9 +2,11 @@
 
 Package dogstatsd provides a Go DogStatsD client. DogStatsD extends StatsD - adding tags and histograms. The documentation for DogStatsD is here: http://docs.datadoghq.com/guides/dogstatsd/
 
-## Get the code
+The dogstatsD client is customised to be integrated with apiary,a statsd adapter is added which acts as an interface between dogstatsd client and apiary.
 
-    $ go get github.com/ooyala/go-dogstatsd
+## Get the codessss
+
+    $ go get github.com/jabong/go-dogstatsd
 
 ## Usage
 
