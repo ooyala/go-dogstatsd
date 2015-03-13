@@ -42,8 +42,8 @@ func TestClient(t *testing.T) {
 	defer client.Close()
 
 	for _, tt := range dogstatsdTests {
-		client.Namespace = tt.GlobalNamespace
-		client.Tags = tt.GlobalTags
+		client.SetNamespace(tt.GlobalNamespace)
+		client.SetTags(tt.GlobalTags)
 		method := reflect.ValueOf(client).MethodByName(tt.Method)
 		e := method.Call([]reflect.Value{
 			reflect.ValueOf(tt.Metric),
@@ -64,34 +64,34 @@ func TestClient(t *testing.T) {
 }
 
 type eventTest struct {
-	logEvent func(*Client) error
+	logEvent func(Client) error
 	expected string
 }
 
 var eventTests = []eventTest{
 	eventTest{
-		logEvent: func(c *Client) error { return c.Warning("title", "text", []string{"tag1", "tag2"}) },
+		logEvent: func(c Client) error { return c.Warning("title", "text", []string{"tag1", "tag2"}) },
 		expected: "_e{5,4}:title|text|t:warning|s:flubber|#tag1,tag2",
 	},
 	eventTest{
-		logEvent: func(c *Client) error { return c.Error("Error!", "some error", []string{"tag3"}) },
+		logEvent: func(c Client) error { return c.Error("Error!", "some error", []string{"tag3"}) },
 		expected: "_e{6,10}:Error!|some error|t:error|s:flubber|#tag3",
 	},
 	eventTest{
-		logEvent: func(c *Client) error { return c.Info("FYI", "note", []string{}) },
+		logEvent: func(c Client) error { return c.Info("FYI", "note", []string{}) },
 		expected: "_e{3,4}:FYI|note|t:info|s:flubber",
 	},
 	eventTest{
-		logEvent: func(c *Client) error { return c.Success("Great News", "hurray", []string{"foo", "bar", "baz"}) },
+		logEvent: func(c Client) error { return c.Success("Great News", "hurray", []string{"foo", "bar", "baz"}) },
 		expected: "_e{10,6}:Great News|hurray|t:success|s:flubber|#foo,bar,baz",
 	},
 	eventTest{
-		logEvent: func(c *Client) error { return c.Info("Unicode", "世界", []string{}) },
+		logEvent: func(c Client) error { return c.Info("Unicode", "世界", []string{}) },
 		// Expect character, not byte lengths
 		expected: "_e{7,2}:Unicode|世界|t:info|s:flubber",
 	},
 	eventTest{
-		logEvent: func(c *Client) error {
+		logEvent: func(c Client) error {
 			eo := EventOpts{
 				DateHappened:   time.Date(2014, time.September, 18, 22, 56, 0, 0, time.UTC),
 				Priority:       Normal,
@@ -111,7 +111,7 @@ func TestEvent(t *testing.T) {
 	server := newServer(t, addr)
 	defer server.Close()
 	client := newClient(t, addr)
-	client.Namespace = "flubber."
+	client.SetNamespace("flubber.")
 
 	for _, tt := range eventTests {
 		if err := tt.logEvent(client); err != nil {
@@ -142,7 +142,7 @@ func serverRead(t *testing.T, server *net.UDPConn) string {
 	return string(bytes[:n])
 }
 
-func newClient(t *testing.T, addr string) *Client {
+func newClient(t *testing.T, addr string) Client {
 	client, err := New(addr)
 	if err != nil {
 		t.Fatal(err)
