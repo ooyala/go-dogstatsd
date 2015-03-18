@@ -9,25 +9,27 @@ Package dogstatsd provides a Go DogStatsD client. DogStatsD extends StatsD - add
 ## Usage
 
     // Create the client
-    c, err := dogstatsd.New("127.0.0.1:8125")
-    defer c.Close()
+    c, err := dogstatsd.New("127.0.0.1:8125", "flubber.", []string{"us-east-1a"})
     if err != nil {
       log.Fatal(err)
     }
+    defer c.Close()
+
     // Prefix every metric with the app name
-    c.Namespace = "flubber."
+    c.SetGlobalNamespace("flubber.")
     // Send the EC2 availability zone as a tag with every metric
-    c.Tags = append(c.Tags, "us-east-1a")
+    c.SetGlobalTags([]string{"us-east-1a"})
+
     err = c.Gauge("request.duration", 1.2, nil, 1)
 
-	// Post info to datadog event stream
-	err = c.Info("cookie alert", "Cookies up for grabs in the kitchen!", nil)
+    // Post info to datadog event stream
+    err = c.Info("cookie alert", "Cookies up for grabs in the kitchen!", nil)
 
 ## Development
 
 Run the tests with:
 
-    $ go test
+    $ go test -v
 
 ## Documentation
 

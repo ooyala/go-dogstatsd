@@ -31,7 +31,7 @@ var dogstatsdTests = []struct {
 	{"", nil, "Histogram", "test.histogram", 2.3, []string{"tagA"}, 1.0, "test.histogram:2.300000|h|#tagA"},
 	{"", nil, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagA"},
 	{"flubber.", nil, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "flubber.test.set:uuid|s|#tagA"},
-	{"", []string{"tagC"}, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagC,tagA"},
+	{"", []string{"tagC"}, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagA,tagC"},
 }
 
 func TestClient(t *testing.T) {
@@ -41,9 +41,9 @@ func TestClient(t *testing.T) {
 	client := newClient(t, addr)
 	defer client.Close()
 
-	for _, tt := range dogstatsdTests {
-		client.Namespace = tt.GlobalNamespace
-		client.Tags = tt.GlobalTags
+	for i, tt := range dogstatsdTests {
+		client.SetGlobalNamespace(tt.GlobalNamespace)
+		client.SetGlobalTags(tt.GlobalTags)
 		method := reflect.ValueOf(client).MethodByName(tt.Method)
 		e := method.Call([]reflect.Value{
 			reflect.ValueOf(tt.Metric),
@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 
 		message := serverRead(t, server)
 		if message != tt.Expected {
-			t.Errorf("Expected: %s. Actual: %s", tt.Expected, message)
+			t.Errorf("\n[%d] Expected:\t%s\nActual:\t\t%s", i, tt.Expected, message)
 		}
 	}
 
@@ -69,28 +69,28 @@ type eventTest struct {
 }
 
 var eventTests = []eventTest{
-	eventTest{
+	{
 		logEvent: func(c *Client) error { return c.Warning("title", "text", []string{"tag1", "tag2"}) },
 		expected: "_e{5,4}:title|text|t:warning|s:flubber|#tag1,tag2",
 	},
-	eventTest{
+	{
 		logEvent: func(c *Client) error { return c.Error("Error!", "some error", []string{"tag3"}) },
 		expected: "_e{6,10}:Error!|some error|t:error|s:flubber|#tag3",
 	},
-	eventTest{
+	{
 		logEvent: func(c *Client) error { return c.Info("FYI", "note", []string{}) },
 		expected: "_e{3,4}:FYI|note|t:info|s:flubber",
 	},
-	eventTest{
+	{
 		logEvent: func(c *Client) error { return c.Success("Great News", "hurray", []string{"foo", "bar", "baz"}) },
 		expected: "_e{10,6}:Great News|hurray|t:success|s:flubber|#foo,bar,baz",
 	},
-	eventTest{
+	{
 		logEvent: func(c *Client) error { return c.Info("Unicode", "世界", []string{}) },
 		// Expect character, not byte lengths
 		expected: "_e{7,2}:Unicode|世界|t:info|s:flubber",
 	},
-	eventTest{
+	{
 		logEvent: func(c *Client) error {
 			eo := EventOpts{
 				DateHappened:   time.Date(2014, time.September, 18, 22, 56, 0, 0, time.UTC),
@@ -111,15 +111,15 @@ func TestEvent(t *testing.T) {
 	server := newServer(t, addr)
 	defer server.Close()
 	client := newClient(t, addr)
-	client.Namespace = "flubber."
+	client.SetGlobalNamespace("flubber.")
 
-	for _, tt := range eventTests {
+	for i, tt := range eventTests {
 		if err := tt.logEvent(client); err != nil {
 			t.Fatal(err)
 		}
 		message := serverRead(t, server)
 		if message != tt.expected {
-			t.Errorf("Expected: %s. Actual: %s", tt.expected, message)
+			t.Errorf("\n[%d] Expected:\t%s\nActual:\t\t%s", i, tt.expected, message)
 		}
 	}
 
@@ -128,7 +128,7 @@ func TestEvent(t *testing.T) {
 		fmt.Fprintf(&b, "a")
 	}
 	err := client.Error("too long", b.String(), []string{})
-	if err == nil || err.Error() != "Event 'too long' payload is too big (more that 8KB), event discarded" {
+	if err == nil || err.Error() != "Event \"too long\" payload is too big (more that 8KB), event discarded" {
 		t.Errorf("Expected error due to exceeded event byte length")
 	}
 }
