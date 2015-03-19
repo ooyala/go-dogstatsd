@@ -4,7 +4,6 @@ package dogstatsd
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"reflect"
 	"testing"
@@ -35,10 +34,10 @@ var dogstatsdTests = []struct {
 }
 
 func TestClient(t *testing.T) {
-	addr := "localhost:1201"
-	server := newServer(t, addr)
+	server := newServer(t)
 	defer server.Close()
-	client := newClient(t, addr)
+
+	client := newClient(t, server.LocalAddr().String())
 	defer client.Close()
 
 	for i, tt := range dogstatsdTests {
@@ -54,9 +53,7 @@ func TestClient(t *testing.T) {
 		if errInter != nil {
 			t.Fatal(errInter.(error))
 		}
-
-		message := serverRead(t, server)
-		if message != tt.Expected {
+		if message := serverRead(t, server); message != tt.Expected {
 			t.Errorf("\n[%d] Expected:\t%s\nActual:\t\t%s", i, tt.Expected, message)
 		}
 	}
@@ -107,26 +104,25 @@ var eventTests = []eventTest{
 }
 
 func TestEvent(t *testing.T) {
-	addr := "localhost:1201"
-	server := newServer(t, addr)
+	server := newServer(t)
 	defer server.Close()
-	client := newClient(t, addr)
+
+	client := newClient(t, server.LocalAddr().String())
 	client.SetGlobalNamespace("flubber.")
+	defer client.Close()
 
 	for i, tt := range eventTests {
 		if err := tt.logEvent(client); err != nil {
 			t.Fatal(err)
 		}
-		message := serverRead(t, server)
-		if message != tt.expected {
+		if message := serverRead(t, server); message != tt.expected {
 			t.Errorf("\n[%d] Expected:\t%s\nActual:\t\t%s", i, tt.expected, message)
 		}
 	}
 
-	var b bytes.Buffer
-	for i := 0; i < maxEventBytes+1; i++ {
-		fmt.Fprintf(&b, "a")
-	}
+	b := bytes.NewBuffer(nil)
+	b.Write(bytes.Repeat([]byte("a"), maxEventBytes+1))
+
 	err := client.Error("too long", b.String(), []string{})
 	if err == nil || err.Error() != "Event \"too long\" payload is too big (more that 8KB), event discarded" {
 		t.Errorf("Expected error due to exceeded event byte length")
@@ -134,12 +130,12 @@ func TestEvent(t *testing.T) {
 }
 
 func serverRead(t *testing.T, server *net.UDPConn) string {
-	bytes := make([]byte, 1024)
-	n, _, err := server.ReadFrom(bytes)
+	buf := make([]byte, 1024)
+	n, err := server.Read(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return string(bytes[:n])
+	return string(buf[:n])
 }
 
 func newClient(t *testing.T, addr string) *Client {
@@ -150,8 +146,8 @@ func newClient(t *testing.T, addr string) *Client {
 	return client
 }
 
-func newServer(t *testing.T, addr string) *net.UDPConn {
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+func newServer(t *testing.T) *net.UDPConn {
+	udpAddr, err := net.ResolveUDPAddr("udp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
