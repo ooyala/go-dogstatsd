@@ -5,7 +5,6 @@ package dogstatsd
 import (
 	"bytes"
 	"net"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -13,24 +12,24 @@ import (
 var dogstatsdTests = []struct {
 	GlobalNamespace string
 	GlobalTags      []string
-	Method          string
+	Method          interface{}
 	Metric          string
 	Value           interface{}
 	Tags            []string
 	Rate            float64
 	Expected        string
 }{
-	{"", nil, "Gauge", "test.gauge", 1.0, nil, 1.0, "test.gauge:1.000000|g"},
-	{"", nil, "Gauge", "test.gauge", 1.0, nil, 0.999999, "test.gauge:1.000000|g|@0.999999"},
-	{"", nil, "Gauge", "test.gauge", 1.0, []string{"tagA"}, 1.0, "test.gauge:1.000000|g|#tagA"},
-	{"", nil, "Gauge", "test.gauge", 1.0, []string{"tagA", "tagB"}, 1.0, "test.gauge:1.000000|g|#tagA,tagB"},
-	{"", nil, "Gauge", "test.gauge", 1.0, []string{"tagA"}, 0.999999, "test.gauge:1.000000|g|@0.999999|#tagA"},
-	{"", nil, "Count", "test.count", int64(1), []string{"tagA"}, 1.0, "test.count:1|c|#tagA"},
-	{"", nil, "Count", "test.count", int64(-1), []string{"tagA"}, 1.0, "test.count:-1|c|#tagA"},
-	{"", nil, "Histogram", "test.histogram", 2.3, []string{"tagA"}, 1.0, "test.histogram:2.300000|h|#tagA"},
-	{"", nil, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagA"},
-	{"flubber.", nil, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "flubber.test.set:uuid|s|#tagA"},
-	{"", []string{"tagC"}, "Set", "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagA,tagC"},
+	{"", nil, (*Client).Gauge, "test.gauge", 1.0, nil, 1.0, "test.gauge:1.000000|g"},
+	{"", nil, (*Client).Gauge, "test.gauge", 1.0, nil, 0.999999, "test.gauge:1.000000|g|@0.999999"},
+	{"", nil, (*Client).Gauge, "test.gauge", 1.0, []string{"tagA"}, 1.0, "test.gauge:1.000000|g|#tagA"},
+	{"", nil, (*Client).Gauge, "test.gauge", 1.0, []string{"tagA", "tagB"}, 1.0, "test.gauge:1.000000|g|#tagA,tagB"},
+	{"", nil, (*Client).Gauge, "test.gauge", 1.0, []string{"tagA"}, 0.999999, "test.gauge:1.000000|g|@0.999999|#tagA"},
+	{"", nil, (*Client).Count, "test.count", int64(1), []string{"tagA"}, 1.0, "test.count:1|c|#tagA"},
+	{"", nil, (*Client).Count, "test.count", int64(-1), []string{"tagA"}, 1.0, "test.count:-1|c|#tagA"},
+	{"", nil, (*Client).Histogram, "test.histogram", 2.3, []string{"tagA"}, 1.0, "test.histogram:2.300000|h|#tagA"},
+	{"", nil, (*Client).Set, "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagA"},
+	{"flubber.", nil, (*Client).Set, "test.set", "uuid", []string{"tagA"}, 1.0, "flubber.test.set:uuid|s|#tagA"},
+	{"", []string{"tagC"}, (*Client).Set, "test.set", "uuid", []string{"tagA"}, 1.0, "test.set:uuid|s|#tagA,tagC"},
 }
 
 func TestClient(t *testing.T) {
@@ -43,16 +42,25 @@ func TestClient(t *testing.T) {
 	for i, tt := range dogstatsdTests {
 		client.SetGlobalNamespace(tt.GlobalNamespace)
 		client.SetGlobalTags(tt.GlobalTags)
-		method := reflect.ValueOf(client).MethodByName(tt.Method)
-		e := method.Call([]reflect.Value{
-			reflect.ValueOf(tt.Metric),
-			reflect.ValueOf(tt.Value),
-			reflect.ValueOf(tt.Tags),
-			reflect.ValueOf(tt.Rate)})[0]
-		errInter := e.Interface()
-		if errInter != nil {
-			t.Fatal(errInter.(error))
+
+		var err error
+		switch fct := tt.Method.(type) {
+		// Gauge, Histogram
+		case func(*Client, string, float64, []string, float64) error:
+			err = fct(client, tt.Metric, tt.Value.(float64), tt.Tags, tt.Rate)
+		// Count
+		case func(*Client, string, int64, []string, float64) error:
+			err = fct(client, tt.Metric, tt.Value.(int64), tt.Tags, tt.Rate)
+		// Set
+		case func(*Client, string, string, []string, float64) error:
+			err = fct(client, tt.Metric, tt.Value.(string), tt.Tags, tt.Rate)
+		default:
+			t.Fatalf("Unkown method type: %T", fct)
 		}
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		if message := serverRead(t, server); message != tt.Expected {
 			t.Errorf("\n[%d] Expected:\t%s\nActual:\t\t%s", i, tt.Expected, message)
 		}

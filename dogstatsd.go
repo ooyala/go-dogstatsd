@@ -73,7 +73,8 @@ type EventOpts struct {
 
 // Client represents the statsd Client.
 type Client struct {
-	conn        io.WriteCloser
+	conn io.WriteCloser
+
 	eventSource string // eventSource is the Namespace truncated to the first `.`
 	namespace   string // Namespace to prepend to all statsd calls
 	tags        string // Global tags to be added to every statsd call
@@ -89,9 +90,7 @@ func New(addr string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
-		conn: conn,
-	}, nil
+	return &Client{conn: conn}, nil
 }
 
 // send handles sampling and sends the message over UDP. It also adds global namespace prefixes and tags.
@@ -155,9 +154,10 @@ func (c *Client) Error(title string, text string, tags []string) error {
 // If client Namespace is set it is used as the Event source.
 func (c *Client) Event(title string, text string, eo *EventOpts) error {
 	// Can't use `len()` because we accept utf8
-	titleLen, textLen := utf8.RuneCountInString(title), utf8.RuneCountInString(text)
+	// TODO: is it relevent to know the rune count vs byte length? RunCountInString is slow, len() is fast
+	titleLen, textLen := int64(utf8.RuneCountInString(title)), int64(utf8.RuneCountInString(text))
 
-	eventStr := "_e{" + strconv.FormatInt(int64(titleLen), 10) + "," + strconv.FormatInt(int64(textLen), 10) + "}:" + title + "|" + text + "|t:" + string(eo.AlertType)
+	eventStr := "_e{" + strconv.FormatInt(titleLen, 10) + "," + strconv.FormatInt(textLen, 10) + "}:" + title + "|" + text + "|t:" + string(eo.AlertType)
 
 	if eo.SourceTypeName != "" {
 		eventStr += "|s:" + eo.SourceTypeName
