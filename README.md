@@ -23,6 +23,14 @@ Package dogstatsd provides a Go DogStatsD client. DogStatsD extends StatsD - add
 	// Post info to datadog event stream
 	err = c.Info("cookie alert", "Cookies up for grabs in the kitchen!", nil)
 
+**NOTE**
+
+If the event body contains a new line then the event body must be submitted as as a string literal (using backticks in the go code). For example:-
+
+```
+c.Info("cookie alert", `Cookies up for grabs in the... \n kitchen!`, nil)
+```
+
 ## Development
 
 Run the tests with:
